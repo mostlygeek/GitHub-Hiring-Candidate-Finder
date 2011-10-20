@@ -8,16 +8,19 @@ define('CACHE_DIR', realpath(__DIR__ . '/cache/'));
  * 
  * @param string $uri
  * @param bool $useCache 
- * @return array('meta' => header data/other, 'data' => json decoded object)
+ * @return GitHubResponse
  */
 function getApiResults($uri, $useCache=true) 
 {    
-    if (substr($uri, 0, 1) == '/') {
-        $uri = substr($uri, 1); // chop initial /
+    // deal with relative urls automatically 
+    if (substr($uri, 0, 4) != 'http') {
+        if (substr($uri, 0, 1) == '/') {
+            $uri = substr($uri, 1); // chop initial /
+        }
+
+        $uri = 'https://api.github.com/'.$uri;                 
     }
-    
-    $uri = 'https://api.github.com/'.$uri; 
-        
+            
     if ($useCache) {
         $cached = readCacheData($uri);
         if ($cached !== false) {
@@ -48,18 +51,18 @@ function getApiResults($uri, $useCache=true)
         $headerData[$key] = $val; 
     }
     
-    $data = array('meta' => $headerData, 'body' => $body); 
-    writeCacheData($uri, $data);
-    return $data;    
+    $ghResponse = new GitHubResponse($headerData, $body);    
+    writeCacheData($uri, $ghResponse);
+    return $ghResponse;
 }
 
 /**
  * Writes the data (json) into a cache file
  * 
  * @param string $uri
- * @param string $data 
+ * @param GitHubResponse $data 
  */
-function writeCacheData($uri, $data)
+function writeCacheData($uri, GitHubResponse $data)
 {
     $file = cacheFileName($uri);
     $fp = fopen($file, 'w');
@@ -72,6 +75,7 @@ function writeCacheData($uri, $data)
  * null if nothing exists
  * 
  * @param string $uri 
+ * @return GitHubResponse
  */
 function readCacheData($uri)
 {
@@ -96,4 +100,108 @@ function readCacheData($uri)
 function cacheFileName($uri)
 {
     return CACHE_DIR . '/' . sha1($uri) . '.cache';
+}
+
+
+/**
+ * Encapsulates the GitHub response
+ */
+class GitHubResponse 
+{
+    /** @var Array */
+    protected $_meta;
+    
+    /** @var string */
+    protected $_data; 
+    
+    public function __construct(Array $meta, $data) 
+    {
+       $this->_meta = $meta; 
+       $this->_data = $data; 
+    }
+    
+    /**
+     * Return the meta information (http headers) 
+     * that were in cluded
+     * 
+     * @return Array
+     */
+    public function getMeta()
+    {
+        return $this->_meta;
+    }
+    
+    /**
+     * Return the data from the response
+     * 
+     * @return string
+     */
+    public function getData()
+    {
+        return $this->_data;
+    }
+    
+    /**
+     * Returns URI to the first page of results
+     * 
+     * @return type  
+     */
+    public function getLinkFirst()
+    {
+        return $this->getLink('first');            
+    }
+    
+    /**
+     * Returns URI to the NEXT page of results
+     */
+    public function getLinkNext()
+    {
+        return $this->getLink('next');            
+    }
+    
+    /**
+     * Returns URI to the LAST page of results
+     */
+    public function getLinkLast()
+    {
+        return $this->getLink('last');
+    }
+    
+    /**
+     * Returns URI to the PREVIOUS page of results
+     * 
+     * @return string
+     */
+    public function getLinkPrev()
+    {
+        return $this->getLink('prev');
+    }
+    
+    /**
+     * Gets link specificed by the relationship $rel (next, last)
+     * 
+     * @param string $relToFind
+     */
+    public function getLink($relToFind)
+    {
+        if (!isset($this->_meta['Link'])) {
+            return false; 
+        }
+        
+        $link = $this->_meta['Link'];
+        $links = explode(', ', $link);
+        
+        foreach ($links as $test)
+        {
+            preg_match('/<([^>]*)>; rel="([^"]*)/', $test, $matches);
+            $uri = $matches[1];
+            $rel = $matches[2]; 
+            
+            if ($rel == $relToFind) {
+                return $uri; 
+            }
+        }
+        
+        return false; 
+    }
 }
