@@ -1,9 +1,9 @@
 var crypto = require('crypto'), 
     fs = require('fs');
 /**
- * Test that a cache container works as expected 
+ * A dead simple caching container 
  */
-function Cacheable(cacheDir, debug)
+exports.CreateCache = function(cacheDir, debug)
 {
     var stats = fs.lstatSync(cacheDir); 
     if (!stats.isDirectory()) {
@@ -22,10 +22,8 @@ function Cacheable(cacheDir, debug)
                 context = this;
             fs.readFile(file, function(err, data) {
                 if (err) {
-                    context.$debug(err);
                     cacheHandler.call(context, key, false);
                 } else {
-                    // successfully got data                    
                     cacheHandler.call(context, key, true, JSON.parse(data));
                 }
 
@@ -38,7 +36,9 @@ function Cacheable(cacheDir, debug)
                 context = this;             
             
             fs.writeFile(file, JSON.stringify(data), function(err) {
-                context.$debug("Cache write error: " + err);
+                if (err) {
+                    context.$debug("Cache write error: " + err);
+                }
             });            
         },
         
@@ -50,26 +50,3 @@ function Cacheable(cacheDir, debug)
         }
     }
 }
-
-var cache = Cacheable('./cache');
-cache.get('some-key-blah', function(key, hit, data) {
-    if (hit) {
-        
-        console.log('HIT! Got back: "' + data + '"');
-        
-    } else {        
-        console.log('MISS, writing data');
-        this.write(key, key);
-    }
-});
-
-cache.get('some-key-blah2', function(key, hit, data) {
-    if (hit) {
-        
-        console.log('HIT! Got back: "' + data + '"');
-        
-    } else {        
-        console.log('MISS, writing data');
-        this.write(key, key);
-    }
-});
