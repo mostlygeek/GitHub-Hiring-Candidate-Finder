@@ -1,3 +1,4 @@
 cache/*
+node/cache/*
 .DS_Store
 
