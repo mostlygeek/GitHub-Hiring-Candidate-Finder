@@ -51,6 +51,10 @@ function getApiResults($uri, $useCache=true)
         $headerData[$key] = $val; 
     }
     
+    if ($headerData['Status'] != '200 OK') {
+        die("ERROR: " . print_r($headerData, 1));
+    }
+        
     $ghResponse = new GitHubResponse($headerData, $body);    
     writeCacheData($uri, $ghResponse);
     return $ghResponse;

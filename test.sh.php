@@ -2,6 +2,7 @@
 <?php
 
 require('_url-fetch.php');
+require('Candidate.php');
 
 define('POINTS_WATCH', 1); 
 define('POINTS_FORK',  5);
@@ -38,37 +39,33 @@ foreach ($repositories as $repos) {
         $data = json_decode($response->getData(), true);
         foreach ($data as $user) {
             $login = $user['login'];
+            
             if (!isset($candidates[$login])) {
-                $candidates[$login] = array(
-                    'user'       => $user,
-                    'watch_score' => 0,
-                    'fork_score'  => 0,
-                ); 
+                $candidates[$login] = new Candidate($login);
             }
 
-            // give them 1 point
-            $candidates[$login]['watch_score']++;
+            // give them  a watched repo point
+            $candidates[$login]->giveWatchTargetRepoPoints($repos);
         }
-    }
-    
+    }    
 }
 
 echo "Total Number of Candidates: " . count($candidates) . "\n"; 
 
 usort($candidates, function($a, $b) {
-    return $b['watch_score'] - $a['watch_score'];
+    return $b->getTotalScore() - $a->getTotalScore();
 });
 
 $top = array_slice($candidates, 0, 15);
 echo "Top Candidates ... \n";
 $c = 1; 
-foreach ($top as $item) {
-    printf("% 5s) % 20s | % 3s | % 3s | %s\n", 
-                $c++, 
-                $item['user']['login'], 
-                $item['watch_score'], 
-                $item['fork_score'], 
-                str_replace('api.github.com/users', 'github.com', $item['user']['url']));
+foreach ($top as $candidate) {
+    /* @var $candidate Candidate */
+    printf("% 5s) % 20s | % 3s | %s\n", 
+            $c++, 
+            $candidate->login, 
+            $candidate->getTotalScore(),
+            str_replace('api.github.com/users', 'github.com', $candidate->get('url')));    
 }
 
 
