@@ -73,26 +73,25 @@ Promise.all(watcherPromises).then(function(repoWatchers) {
                users[login] = {
                    keyRepos : 0                   
                    /** add in other scoring fields we want to track */
-               };                              
+               };
+               
+               console.log("fetching /users/" + login);
+               var prom = apiFetch('/users/' + login); 
+               userPromises.push(prom);
+
+               prom.then(function(response) {
+                   usersFetched++;
+
+                   console.log("Fetched: " + response.data.login + " (" + 
+                       usersFetched + "/" + totalUsers + ")");
+                   /**
+                    * this should assign data into the users array, and 
+                    * do some tabulations.. 
+                    */
+               });               
            }
            
-           users[login].keyRepos++;
-           
-           console.log("fetching /users/" + login);
-           var prom = apiFetch('/users/' + login); 
-           userPromises.push(prom);
-           
-           prom.then(function(response) {
-               usersFetched++;
-               
-               console.log("Fetched:" + response.data.login + " (" + 
-                   usersFetched + "/" + totalUsers + ")");
-               /**
-                * this should assign data into the users array, and 
-                * do some tabulations.. 
-                */
-           });
-           
+           users[login].keyRepos++;           
        });
    });
    
@@ -111,21 +110,31 @@ function apiFetch(uri) {
         that.$debug('MISS "' + cacheKey + '"');
         
         https.get( {
-            host : '207.97.227.243', 
+            host : 'api.github.com', 
             path : uri
         }, function(res) {           
            var bodyData = '';
            
            res.on('data', function(chunk) {
               bodyData += chunk; 
-           }).on('end', function() {               
-               var data = {
-                   headers : res.headers, 
-                   data    : JSON.parse(bodyData)      
+           }).on('end', function() {
+               
+               var decoded; 
+               
+               try {
+                   decoded = JSON.parse(bodyData);
+               } catch (e) {
+                   console.log(bodyData);
+                   console.log(e);
                }
                
-               cache.write(cacheKey, data); 
-               promise.resolve(data);               
+               var response = {
+                   headers : res.headers, 
+                   data    : decoded
+               };
+               
+               cache.write(cacheKey, response); 
+               promise.resolve(response);               
            });
         });        
     });
