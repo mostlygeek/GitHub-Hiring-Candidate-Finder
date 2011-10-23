@@ -84,6 +84,18 @@ Promise.all(watcherPromises).then(function(repoWatchers) {
 
                    console.log("Fetched: " + response.data.login + " (" + 
                        usersFetched + "/" + totalUsers + ")");
+                   
+                   var u = users[login], r = response.data; // too lazy to type .. 
+
+                   var keys = ['email', 'name', 'hireable', 'public_gists', 'public_repos', 
+                    'followers', 'created_at', 'location'];
+                
+                   keys.forEach(function(key) {                    
+                        if (r.hasOwnProperty(key)) {
+                            u[key] = r[key];
+                        }                    
+                   });
+                   
                    /**
                     * this should assign data into the users array, and 
                     * do some tabulations.. 
@@ -96,7 +108,7 @@ Promise.all(watcherPromises).then(function(repoWatchers) {
    });
    
    Promise.all(userPromises).then(function(userProfiles) {
-      console.log(userProfiles); 
+      console.log(users); 
    });    
 });
 
