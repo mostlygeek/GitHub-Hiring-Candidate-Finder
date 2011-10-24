@@ -10,9 +10,12 @@ var cache = require('./CachePromise').Cache('./cache', function(msg) {
 /**
  * Repositories to fetch watchers for
  */
-var repos = ['PushButtonLabs/PushButtonEngine',
-             'mikechambers/as3corelib', 
-             'AdamAtomic/flixel'
+var repos = [  'PushButtonLabs/PushButtonEngine'
+             , 'mikechambers/as3corelib' 
+             , 'robertpenner/as3-signals'
+             , 'AdamAtomic/flixel'
+             , 'robotlegs/robotlegs-framework'
+             , 'flexunit/flexunit'             
             ];
 
 var users = {};
@@ -71,24 +74,24 @@ Promise.all(watcherPromises).then(function(repoWatchers) {
            if (!users.hasOwnProperty(login)) {  
                totalUsers++;
                users[login] = {
-                   keyRepos : 0                   
+                   targetRepos : 0                   
                    /** add in other scoring fields we want to track */
                };
                
-               console.log("fetching /users/" + login);
                var prom = apiFetch('/users/' + login); 
                userPromises.push(prom);
 
                prom.then(function(response) {
                    usersFetched++;
 
-                   console.log("Fetched: " + response.data.login + " (" + 
-                       usersFetched + "/" + totalUsers + ")");
+                   //console.log(Math.round(usersFetched/totalUsers * 100) + "% done");
                    
                    var u = users[login], r = response.data; // too lazy to type .. 
 
-                   var keys = ['email', 'name', 'hireable', 'public_gists', 'public_repos', 
-                    'followers', 'created_at', 'location'];
+                   var keys = ['login', 'email', 'name', 'hireable', 
+                               'public_gists', 'public_repos', 'followers', 
+                               'created_at', 'location', 'bio', 'company',
+                               'html_url'];
                 
                    keys.forEach(function(key) {                    
                         if (r.hasOwnProperty(key)) {
@@ -103,12 +106,54 @@ Promise.all(watcherPromises).then(function(repoWatchers) {
                });               
            }
            
-           users[login].keyRepos++;           
+           users[login].targetRepos++;           
        });
    });
    
-   Promise.all(userPromises).then(function(userProfiles) {
-      console.log(users); 
+   
+   
+    Promise.all(userPromises).then(function(userProfiles) {
+        var sortedUsers = [];       
+
+        for (var login in users) {          
+            // determine a score for the user 
+            (function(user) {
+                sortedUsers.push(user); 
+
+                var score = 0;
+
+                // lets do some math
+                if (user.public_gists) {
+                    score += (user.public_gists * 10);
+                }
+
+                if (user.public_repos) {
+                    score += (user.public_repos * 25);
+                }
+
+                if (user.followers) {
+                    score += (user.followers * 100);
+                }
+
+                user.score = score;
+            })(users[login]);
+        }
+
+        sortedUsers.sort(function(a, b) {
+            return (b.targetRepos - a.targetRepos);   
+        });
+        
+        sortedUsers.slice(0, 30).forEach(function(u) {
+            var row = [u.targetRepos, 
+                       u.login, 
+                       u.score, 
+                       u.html_url, u.hireable,
+                       u.followers, 
+                       u.created_at];
+            
+            console.log(u.targetRepos, u.score, u.html_url); 
+        });
+      
    });    
 });
 
@@ -144,6 +189,8 @@ function apiFetch(uri) {
                    headers : res.headers, 
                    data    : decoded
                };
+               
+               console.log("Fetched: " + uri);
                
                cache.write(cacheKey, response); 
                promise.resolve(response);               
